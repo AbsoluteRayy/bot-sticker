@@ -99,7 +99,30 @@ async function startBot() {
         '';
 
       const cmd = rawText.trim().split(/\s+/)[0]?.toLowerCase();
-      if (!['/sa', '/s'].includes(cmd)) continue;
+      if (!['/sa', '/s', '/rhelp'].includes(cmd)) continue;
+
+      if (cmd === '/rhelp') {
+        const helpText = [
+          '*PANDUAN BOT STIKER*',
+          '',
+          '*1. /s — Stiker Biasa (Tanpa Suara)*',
+          '• Kirim foto atau video pendek dengan caption `/s`',
+          '• Atau reply foto/video yang sudah terkirim pakai `/s`',
+          '',
+          '*2. /sa — Stiker Bersuara (Maks 10 Detik)*',
+          '• Kirim video bersuara dengan caption `/sa`',
+          '• Reply video bersuara pakai `/sa`',
+          '• Kirim foto dengan caption `/sa` sambil reply VN/audio',
+          '• Atau reply foto pakai VN/audio dengan caption `/sa`',
+          '',
+          '*3. /rhelp — Menampilkan panduan ini*',
+          '',
+          '_Catatan: Video lebih dari 10 detik otomatis dipotong ke 10 detik pertama._'
+        ].join('\n');
+
+        await sock.sendMessage(jid, { text: helpText }, { quoted: rawMsg });
+        continue;
+      }
 
       const quotedRaw = content?.extendedTextMessage?.contextInfo?.quotedMessage;
       const quoted = unwrapMessage(quotedRaw);
@@ -142,7 +165,7 @@ async function startBot() {
             await sock.sendMessage(
               jid,
               {
-                text: 'Cara pakai /sa:\n• Kirim atau reply video pendek pakai /sa\n• Atau kirim foto dengan caption /sa sambil reply VN/audio'
+                text: 'Format salah. Ketik `/rhelp` buat lihat panduan lengkap cara pakai `/sa`.'
               },
               { quoted: rawMsg }
             );
@@ -173,7 +196,6 @@ async function startBot() {
             `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "${vfFilter}" -lossless 0 -compression_level 6 -q:v ${quality} -loop 0 -an -vsync 0 "${outWebpPath}"`
           );
 
-          // Kompresi cadangan hanya kalau file tembus 850 KB
           if (isAnimated && fs.statSync(outWebpPath).size > 850 * 1024) {
             await execAsync(
               `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "fps=12,scale=300:300:force_original_aspect_ratio=decrease:flags=lanczos,pad=300:300:-1:-1:color=white@0.0" -lossless 0 -compression_level 6 -q:v 38 -loop 0 -an -vsync 0 "${outWebpPath}"`
@@ -236,7 +258,7 @@ async function startBot() {
           if (!hasMedia) {
             await sock.sendMessage(
               jid,
-              { text: 'Kirim atau reply foto/video pendek pakai caption /s ya.' },
+              { text: 'Kirim atau reply foto/video pendek pakai caption `/s` ya. Ketik `/rhelp` buat info lengkap.' },
               { quoted: rawMsg }
             );
             continue;
@@ -259,7 +281,7 @@ async function startBot() {
         console.error('Gagal proses stiker:', err);
         await sock.sendMessage(
           jid,
-          { text: 'Waduh, gagal bikin stikernya. Pastikan videonya punya suara.' },
+          { text: 'Waduh, gagal bikin stikernya. Pastikan videonya punya suara dan formatnya didukung.' },
           { quoted: rawMsg }
         );
       } finally {
