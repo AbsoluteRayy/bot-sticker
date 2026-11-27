@@ -41,7 +41,7 @@ async function getMediaDuration(filePath) {
   };
 
   try {
-    const { stderr } = await execAsync(`"${ffmpegPath}" -i "${filePath}" -f null -`);
+    const { stderr } = await execAsync(`"${ffmpegPath}" -hide_banner -i "${filePath}"`);
     return parseDuration(stderr) ?? 5;
   } catch (err) {
     return parseDuration(err.stderr) ?? 5;
@@ -184,6 +184,8 @@ async function startBot() {
             continue;
           }
 
+          await sock.sendMessage(jid, { react: { text: '⏳', key: rawMsg.key } }).catch(() => {});
+
           const visBuffer = await downloadMediaMessage(visualMsgObj, 'buffer', {});
           fs.writeFileSync(visualInputPath, visBuffer);
 
@@ -197,25 +199,26 @@ async function startBot() {
           const rawDur = await getMediaDuration(audioInputPath);
           const isLong = rawDur > 5;
 
-          const size = isLong ? 360 : 480;
-          const quality = isLong ? 50 : 68;
+          const size = isLong ? 320 : 400;
+          const fps = isLong ? 12 : 15;
+          const quality = isLong ? 45 : 58;
 
           const vfFilter = isAnimated
-            ? `fps=15,scale=${size}:${size}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=${size}:${size}:-1:-1:color=0x00000000`
+            ? `fps=${fps},scale=${size}:${size}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=${size}:${size}:-1:-1:color=0x00000000`
             : `scale=512:512:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=512:512:-1:-1:color=0x00000000`;
 
           await execAsync(
-            `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "${vfFilter}" -lossless 0 -compression_level 6 -q:v ${quality} -loop 0 -an -vsync 0 "${outWebpPath}"`
+            `"${ffmpegPath}" -y -t ${MAX_DURATION} -i "${visualInputPath}" -vcodec libwebp -filter:v "${vfFilter}" -lossless 0 -compression_level 3 -q:v ${quality} -loop 0 -an -vsync 0 -threads 2 "${outWebpPath}"`
           );
 
           if (isAnimated && fs.statSync(outWebpPath).size > 850 * 1024) {
             await execAsync(
-              `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "fps=12,scale=300:300:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=300:300:-1:-1:color=0x00000000" -lossless 0 -compression_level 6 -q:v 38 -loop 0 -an -vsync 0 "${outWebpPath}"`
+              `"${ffmpegPath}" -y -t ${MAX_DURATION} -i "${visualInputPath}" -vcodec libwebp -filter:v "fps=10,scale=280:280:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=280:280:-1:-1:color=0x00000000" -lossless 0 -compression_level 2 -q:v 35 -loop 0 -an -vsync 0 -threads 2 "${outWebpPath}"`
             );
           }
 
           await execAsync(
-            `"${ffmpegPath}" -y -i "${audioInputPath}" -t ${MAX_DURATION} -vn -c:a libopus -b:a 96k -ar 48000 -ac 1 "${outOggPath}"`
+            `"${ffmpegPath}" -y -t ${MAX_DURATION} -i "${audioInputPath}" -vn -c:a libopus -b:a 64k -ar 48000 -ac 1 -threads 2 "${outOggPath}"`
           );
 
           const finalDuration = await getMediaDuration(outOggPath);
@@ -263,9 +266,12 @@ async function startBot() {
           await sock.relayMessage(jid, waMsg.message, {
             messageId: waMsg.key.id
           });
+
+          await sock.sendMessage(jid, { react: { text: '✅', key: rawMsg.key } }).catch(() => {});
         } else if (cmd === '/rs') {
           const targetMsg = quotedHasVideo || quotedHasImage ? { message: quoted } : { message: content };
-          const hasMedia = Boolean(targetMsg.message?.videoMessage || targetMsg.message?.imageMessage);
+          const isRsVideo = Boolean(targetMsg.message?.videoMessage);
+          const hasMedia = Boolean(isRsVideo || targetMsg.message?.imageMessage);
 
           if (!hasMedia) {
             await sock.sendMessage(
@@ -276,11 +282,17 @@ async function startBot() {
             continue;
           }
 
+          await sock.sendMessage(jid, { react: { text: '⏳', key: rawMsg.key } }).catch(() => {});
+
           const visBuffer = await downloadMediaMessage(targetMsg, 'buffer', {});
           fs.writeFileSync(visualInputPath, visBuffer);
 
+          const rsFilter = isRsVideo
+            ? 'fps=12,scale=360:360:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=360:360:-1:-1:color=0x00000000'
+            : 'scale=512:512:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=512:512:-1:-1:color=0x00000000';
+
           await execAsync(
-            `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "fps=15,scale=420:420:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=420:420:-1:-1:color=0x00000000" -lossless 0 -compression_level 6 -q:v 60 -loop 0 -an -vsync 0 "${outWebpPath}"`
+            `"${ffmpegPath}" -y -t ${MAX_DURATION} -i "${visualInputPath}" -vcodec libwebp -filter:v "${rsFilter}" -lossless 0 -compression_level 3 -q:v 55 -loop 0 -an -vsync 0 -threads 2 "${outWebpPath}"`
           );
 
           await sock.sendMessage(
@@ -288,9 +300,12 @@ async function startBot() {
             { sticker: fs.readFileSync(outWebpPath) },
             { quoted: rawMsg }
           );
+
+          await sock.sendMessage(jid, { react: { text: '✅', key: rawMsg.key } }).catch(() => {});
         }
       } catch (err) {
         console.error('Gagal proses stiker:', err);
+        await sock.sendMessage(jid, { react: { text: '❌', key: rawMsg.key } }).catch(() => {});
         await sock.sendMessage(
           jid,
           { text: 'Waduh, gagal bikin stikernya. Pastikan videonya punya suara dan formatnya didukung.' },
