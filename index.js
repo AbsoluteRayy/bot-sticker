@@ -69,10 +69,24 @@ async function startBot() {
     }
 
     if (connection === 'close') {
+      const statusCode =
+        lastDisconnect?.error?.output?.statusCode ||
+        lastDisconnect?.error?.code;
       const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log('Koneksi putus, nyambungin ulang:', shouldReconnect);
-      if (shouldReconnect) startBot();
+        statusCode !== DisconnectReason.loggedOut && statusCode !== 440;
+
+      console.log(
+        `Koneksi putus (code: ${statusCode}), nyambungin ulang:`,
+        shouldReconnect
+      );
+
+      if (statusCode === 440) {
+        console.log('Sesi bentrok (440)! Pastikan bot tidak jalan di tempat lain.');
+      }
+
+      if (shouldReconnect) {
+        setTimeout(() => startBot(), 3000);
+      }
     } else if (connection === 'open') {
       console.log('Bot udah konek dan siap dipakai!');
     }
@@ -99,21 +113,21 @@ async function startBot() {
         '';
 
       const cmd = rawText.trim().split(/\s+/)[0]?.toLowerCase();
-      if (!['/sa', '/s', '/rhelp'].includes(cmd)) continue;
+      if (!['/rsa', '/rs', '/rhelp'].includes(cmd)) continue;
 
       if (cmd === '/rhelp') {
         const helpText = [
           '*PANDUAN BOT STIKER*',
           '',
-          '*1. /s — Stiker Biasa (Tanpa Suara)*',
-          '• Kirim foto atau video pendek dengan caption `/s`',
-          '• Atau reply foto/video yang sudah terkirim pakai `/s`',
+          '*1. /rs — Stiker Biasa (Tanpa Suara)*',
+          '• Kirim foto atau video pendek dengan caption `/rs`',
+          '• Atau reply foto/video yang sudah terkirim pakai `/rs`',
           '',
-          '*2. /sa — Stiker Bersuara (Maks 10 Detik)*',
-          '• Kirim video bersuara dengan caption `/sa`',
-          '• Reply video bersuara pakai `/sa`',
-          '• Kirim foto dengan caption `/sa` sambil reply VN/audio',
-          '• Atau reply foto pakai VN/audio dengan caption `/sa`',
+          '*2. /rsa — Stiker Bersuara (Maks 10 Detik)*',
+          '• Kirim video bersuara dengan caption `/rsa`',
+          '• Reply video bersuara pakai `/rsa`',
+          '• Kirim foto dengan caption `/rsa` sambil reply VN/audio',
+          '• Atau reply foto pakai VN/audio dengan caption `/rsa`',
           '',
           '*3. /rhelp — Menampilkan panduan ini*',
           '',
@@ -140,7 +154,7 @@ async function startBot() {
       const outOggPath = `./temp_out_${id}.ogg`;
 
       try {
-        if (cmd === '/sa') {
+        if (cmd === '/rsa') {
           let visualMsgObj = null;
           let audioMsgObj = null;
           let isAnimated = false;
@@ -165,7 +179,7 @@ async function startBot() {
             await sock.sendMessage(
               jid,
               {
-                text: 'Format salah. Ketik `/rhelp` buat lihat panduan lengkap cara pakai `/sa`.'
+                text: 'Format salah. Ketik `/rhelp` buat lihat panduan lengkap cara pakai `/rsa`.'
               },
               { quoted: rawMsg }
             );
@@ -211,7 +225,7 @@ async function startBot() {
           const webpSizeKB = Math.round(fs.statSync(outWebpPath).size / 1024);
 
           console.log(
-            `Proses /sa -> Asli: ${rawDur.toFixed(1)}s | Output: ${audioSeconds}s | Ukuran WebP: ${webpSizeKB} KB`
+            `Proses /rsa -> Asli: ${rawDur.toFixed(1)}s | Output: ${audioSeconds}s | Ukuran WebP: ${webpSizeKB} KB`
           );
 
           const stickerPrep = await prepareWAMessageMedia(
@@ -251,14 +265,14 @@ async function startBot() {
           await sock.relayMessage(jid, waMsg.message, {
             messageId: waMsg.key.id
           });
-        } else if (cmd === '/s') {
+        } else if (cmd === '/rs') {
           const targetMsg = quotedHasVideo || quotedHasImage ? { message: quoted } : { message: content };
           const hasMedia = Boolean(targetMsg.message?.videoMessage || targetMsg.message?.imageMessage);
 
           if (!hasMedia) {
             await sock.sendMessage(
               jid,
-              { text: 'Kirim atau reply foto/video pendek pakai caption `/s` ya. Ketik `/rhelp` buat info lengkap.' },
+              { text: 'Kirim atau reply foto/video pendek pakai caption `/rs` ya. Ketik `/rhelp` buat info lengkap.' },
               { quoted: rawMsg }
             );
             continue;
