@@ -69,24 +69,10 @@ async function startBot() {
     }
 
     if (connection === 'close') {
-      const statusCode =
-        lastDisconnect?.error?.output?.statusCode ||
-        lastDisconnect?.error?.code;
       const shouldReconnect =
-        statusCode !== DisconnectReason.loggedOut && statusCode !== 440;
-
-      console.log(
-        `Koneksi putus (code: ${statusCode}), nyambungin ulang:`,
-        shouldReconnect
-      );
-
-      if (statusCode === 440) {
-        console.log('Sesi bentrok (440)! Pastikan bot tidak jalan di tempat lain.');
-      }
-
-      if (shouldReconnect) {
-        setTimeout(() => startBot(), 3000);
-      }
+        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      console.log('Koneksi putus, nyambungin ulang:', shouldReconnect);
+      if (shouldReconnect) startBot();
     } else if (connection === 'open') {
       console.log('Bot udah konek dan siap dipakai!');
     }
