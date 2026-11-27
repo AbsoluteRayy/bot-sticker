@@ -18,6 +18,7 @@ import fs from 'fs';
 const execAsync = promisify(exec);
 const processedIds = new Set();
 const MAX_DURATION = 10;
+const PHONE_NUMBER = process.env.PHONE_NUMBER?.replace(/\D/g, '');
 
 function unwrapMessage(message) {
   return (
@@ -58,12 +59,23 @@ async function startBot() {
     browser: ['Ubuntu', 'Chrome', '20.0.04']
   });
 
+  if (PHONE_NUMBER && !sock.authState.creds.registered) {
+    setTimeout(async () => {
+      try {
+        const code = await sock.requestPairingCode(PHONE_NUMBER);
+        console.log(`KODE PAIRING WA (${PHONE_NUMBER}): ${code}`);
+      } catch (err) {
+        console.error('Gagal minta pairing code:', err);
+      }
+    }, 3000);
+  }
+
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
+    if (qr && !PHONE_NUMBER) {
       console.log('Scan QR code ini lewat WhatsApp di HP kamu:');
       qrcode.generate(qr, { small: true });
     }
@@ -189,8 +201,8 @@ async function startBot() {
           const quality = isLong ? 50 : 68;
 
           const vfFilter = isAnimated
-            ? `fps=15,scale=${size}:${size}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${size}:${size}:-1:-1:color=white@0.0`
-            : `scale=512:512:force_original_aspect_ratio=decrease:flags=lanczos,pad=512:512:-1:-1:color=white@0.0`;
+            ? `fps=15,scale=${size}:${size}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=${size}:${size}:-1:-1:color=0x00000000`
+            : `scale=512:512:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=512:512:-1:-1:color=0x00000000`;
 
           await execAsync(
             `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "${vfFilter}" -lossless 0 -compression_level 6 -q:v ${quality} -loop 0 -an -vsync 0 "${outWebpPath}"`
@@ -198,7 +210,7 @@ async function startBot() {
 
           if (isAnimated && fs.statSync(outWebpPath).size > 850 * 1024) {
             await execAsync(
-              `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "fps=12,scale=300:300:force_original_aspect_ratio=decrease:flags=lanczos,pad=300:300:-1:-1:color=white@0.0" -lossless 0 -compression_level 6 -q:v 38 -loop 0 -an -vsync 0 "${outWebpPath}"`
+              `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "fps=12,scale=300:300:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=300:300:-1:-1:color=0x00000000" -lossless 0 -compression_level 6 -q:v 38 -loop 0 -an -vsync 0 "${outWebpPath}"`
             );
           }
 
@@ -268,7 +280,7 @@ async function startBot() {
           fs.writeFileSync(visualInputPath, visBuffer);
 
           await execAsync(
-            `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "fps=15,scale=420:420:force_original_aspect_ratio=decrease:flags=lanczos,pad=420:420:-1:-1:color=white@0.0" -lossless 0 -compression_level 6 -q:v 60 -loop 0 -an -vsync 0 "${outWebpPath}"`
+            `"${ffmpegPath}" -y -i "${visualInputPath}" -t ${MAX_DURATION} -vcodec libwebp -filter:v "fps=15,scale=420:420:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=420:420:-1:-1:color=0x00000000" -lossless 0 -compression_level 6 -q:v 60 -loop 0 -an -vsync 0 "${outWebpPath}"`
           );
 
           await sock.sendMessage(
