@@ -1,0 +1,22 @@
+{
+  "name": "bot-sticker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --no-warnings index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@whiskeysockets/baileys": "npm:@itsliaaa/baileys@^0.5.6",
+    "ffmpeg-static": "^5.3.0",
+    "pino": "^10.4.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
